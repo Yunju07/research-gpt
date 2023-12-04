@@ -12,7 +12,6 @@ import requests
 import redis
 from sklearn.metrics.pairwise import cosine_similarity
 import hashlib
-#from _md5 import md5
 
 app = FastAPI()
 
