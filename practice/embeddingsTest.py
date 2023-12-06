@@ -6,10 +6,10 @@ from PyPDF2 import PdfReader
 from io import BytesIO
 import hashlib
 
-db = redis.StrictRedis(host='localhost', port=6379, db=0)
+# db = redis.StrictRedis(host='localhost', port=6379, db=0)
 
 
-OPENAI_API_KEY = os.environ('OPENAI_API_KEY')
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 
 
 def get_embedding(text, model="text-embedding-ada-002"):
@@ -31,31 +31,17 @@ def extract_pdf(pdf):
         page = pdf.pages[i]
         page_text = []
 
-        def visitor_body(text, cm, tm, fontDict, fontSize):
-            x = tm[4]
-            y = tm[5]
-            # ignore header/footer
-            if (y > 50 and y < 720) and (len(text.strip()) > 1):
-                page_text.append({"fontsize": fontSize, "text": text.strip().replace("\x03", ""), "x": x, "y": y})
-
-        _ = page.extract_text(visitor_text=visitor_body)
-
-        blob_font_size = None
+        text = page.extract_text().strip()
+        page_text = text.split('\n')
+        
         blob_text = ""
         processed_text = []
 
         for t in page_text:
-            if t["fontsize"] == blob_font_size:
-                blob_text += f" {t['text']}"
-                if len(blob_text) >= 200:
-                    processed_text.append({"fontsize": blob_font_size, "text": blob_text, "page": i})
-                    blob_font_size = None
-                    blob_text = ""
-            else:
-                if blob_font_size is not None and len(blob_text) >= 1:
-                    processed_text.append({"fontsize": blob_font_size, "text": blob_text, "page": i})
-                blob_font_size = t["fontsize"]
-                blob_text = t["text"]
+            blob_text += f" {t}"
+            if len(blob_text) >= 200 or (page_text.index(t) == len(page_text)-1):
+                processed_text.append({"text": blob_text, "page": i})
+                blob_text = ""
         paper_text += processed_text
     print("Done parsing paper")
     return paper_text
@@ -69,8 +55,6 @@ def create_df(data):
         filtered_pdf = []
         # print(pdf.pages[0].extract_text())
         for row in data:
-            if len(row["text"]) < 30:
-                continue
             filtered_pdf.append(row)
         df = pd.DataFrame(filtered_pdf)
         # remove elements with identical df[text] and df[page] values
@@ -100,16 +84,16 @@ def embeddings(df):
 # process start
 
 # file processing 
-file = open("./example.pdf", 'rb')
-pdf = PdfReader(file)
-
+pdf = PdfReader("./pdf/2021 DB 프로젝트 1.pdf")
 paper_text = extract_pdf(pdf)
+
+# print 
+for text in paper_text:
+    print(text)
+
 df = create_df(paper_text)
-df = embeddings(df)
+print(df)
+# df = embeddings(df)
 
-key = hashlib.md5(file).hexdigest()
-print(key)
-
-# database saving
-if db.get(key) is None:
-    db.set(key, df.to_json())
+# # database saving]
+# db.set("test", df.to_json())
