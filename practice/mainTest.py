@@ -11,17 +11,7 @@ import hashlib
 
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 
-
-def get_embedding(text, model="text-embedding-ada-002"):
-        text = text.replace("\n", " ")
-        openai.api_key = OPENAI_API_KEY
-        return openai.embeddings.create(input = [text], model=model).data[0].embedding
-
-def extract_txt(txt):
-    with open(txt, "r") as f:
-        text = f.read()
-    return str(text)
-
+# pdf processing
 def extract_pdf(pdf):
     print("Parsing paper")
     number_of_pages = len(pdf.pages)
@@ -40,15 +30,14 @@ def extract_pdf(pdf):
         for t in page_text:
             blob_text += f" {t}"
             if len(blob_text) >= 200 or (page_text.index(t) == len(page_text)-1):
-                processed_text.append({"text": blob_text, "page": i})
+                processed_text.append({"text": blob_text, "page": i+1})
                 blob_text = ""
         paper_text += processed_text
     print("Done parsing paper")
     return paper_text
 
-
+# dataframe
 def create_df(data):
-
     if type(data) == list:
         print("Extracting text from pdf")
         print("Creating dataframe")
@@ -70,6 +59,11 @@ def create_df(data):
 
     return df
 
+def get_embedding(text, model="text-embedding-ada-002"):
+        text = text.replace("\n", " ")
+        openai.api_key = OPENAI_API_KEY
+        return openai.embeddings.create(input = [text], model=model).data[0].embedding
+
 def embeddings(df):
     print("Calculating embeddings")
     openai.api_key = OPENAI_API_KEY
@@ -87,13 +81,12 @@ def embeddings(df):
 pdf = PdfReader("./pdf/2021 DB 프로젝트 1.pdf")
 paper_text = extract_pdf(pdf)
 
-# print 
-for text in paper_text:
-    print(text)
-
+# dataframe 
 df = create_df(paper_text)
 print(df)
-# df = embeddings(df)
+
+# embeddings
+
 
 # # database saving]
 # db.set("test", df.to_json())
