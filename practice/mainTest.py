@@ -1,4 +1,5 @@
 import openai
+from openai.embeddings_utils import get_embedding
 import os
 import pandas as pd
 import redis
@@ -59,11 +60,6 @@ def create_df(data):
 
     return df
 
-def get_embedding(text, model="text-embedding-ada-002"):
-        text = text.replace("\n", " ")
-        openai.api_key = OPENAI_API_KEY
-        return openai.embeddings.create(input = [text], model=model).data[0].embedding
-
 def embeddings(df):
     print("Calculating embeddings")
     openai.api_key = OPENAI_API_KEY
@@ -76,17 +72,16 @@ def embeddings(df):
 
 
 # process start
-
 # file processing 
 pdf = PdfReader("./pdf/2021 DB 프로젝트 1.pdf")
 paper_text = extract_pdf(pdf)
 
 # dataframe 
 df = create_df(paper_text)
-print(df)
 
 # embeddings
-
+df = embeddings(df)
+print(df['embeddings'])
 
 # # database saving]
 # db.set("test", df.to_json())

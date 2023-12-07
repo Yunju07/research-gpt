@@ -7,6 +7,7 @@ from io import BytesIO
 from PyPDF2 import PdfReader
 import pandas as pd
 import openai
+from openai import embeddings_utils
 import os
 import requests
 import redis
