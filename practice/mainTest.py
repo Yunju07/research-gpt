@@ -1,5 +1,5 @@
 import openai
-from openai.embeddings_utils import get_embedding
+from openai.embeddings_utils import get_embedding, cosine_similarity
 import os
 import pandas as pd
 import redis
@@ -7,7 +7,7 @@ from PyPDF2 import PdfReader
 from io import BytesIO
 import hashlib
 
-# db = redis.StrictRedis(host='localhost', port=6379, db=0)
+db = redis.StrictRedis(host='localhost', port=6379, db=0)
 
 
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
@@ -60,6 +60,7 @@ def create_df(data):
 
     return df
 
+# 임베딩 계산 함수
 def embeddings(df):
     print("Calculating embeddings")
     openai.api_key = OPENAI_API_KEY
@@ -69,6 +70,45 @@ def embeddings(df):
     print("Done calculating embeddings")
     return df
 
+# 쿼리문과 코사인 유사도가 높은 상위 n개의 조각을 데이터프레임에서 얻습니다
+def search(df, query, n=1, pprint=True):
+    query_embedding = get_embedding(query, engine="text-embedding-ada-002")
+    df['similarity'] = df.embedding.apply(lambda x: cosine_similarity(x, query_embedding))
+
+    results = df.sort_values("similarity", ascending=False, ignore_index=True)
+    results = results.head(n)
+    sources = []
+  
+    for i in range(n):
+        # 유사도가 크다고 나온 데이터에 대한 정보
+        sources.append({"Page " + str(results.iloc[i]["page"]): results.iloc[i]["text"][:150] + "..."})
+    
+    return {"results": results, "sources": sources}
+
+
+def create_prompt(df, user_input):
+    print('Creating prompt')
+
+    result = search(df, user_input, n=1)
+    data = result['results']
+    sources = result['sources']
+    system_role = """"""
+
+    user_input = user_input + """
+    Here are the embeddings:
+
+    1.""" + str(data.iloc[0]['text']) + """
+    2.""" + str(data.iloc[1]['text']) + """
+    3.""" + str(data.iloc[2]['text']) + """
+    """
+
+    history = [
+    {"role": "system", "content": system_role},
+    {"role": "user", "content": str(user_input)}]
+
+    print('Done creating prompt')
+
+    return
 
 
 # process start
@@ -83,5 +123,8 @@ df = create_df(paper_text)
 df = embeddings(df)
 print(df['embeddings'])
 
-# # database saving]
-# db.set("test", df.to_json())
+# database saving
+db.set("test", df.to_json())
+
+# question about pdf
+query = "교수님 성함이랑 이메일 알려줘"
