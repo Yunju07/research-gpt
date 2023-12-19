@@ -71,9 +71,9 @@ def embeddings(df):
     return df
 
 # 쿼리문과 코사인 유사도가 높은 상위 n개의 조각을 데이터프레임에서 얻습니다
-def search(df, query, n=1, pprint=True):
+def search(df, query, n=2, pprint=True):
     query_embedding = get_embedding(query, engine="text-embedding-ada-002")
-    df['similarity'] = df.embedding.apply(lambda x: cosine_similarity(x, query_embedding))
+    df['similarity'] = df.embeddings.apply(lambda x: cosine_similarity(x, query_embedding))
 
     results = df.sort_values("similarity", ascending=False, ignore_index=True)
     results = results.head(n)
@@ -89,17 +89,17 @@ def search(df, query, n=1, pprint=True):
 def create_prompt(df, user_input):
     print('Creating prompt')
 
-    result = search(df, user_input, n=1)
+    result = search(df, user_input, n=2)
     data = result['results']
     sources = result['sources']
-    system_role = """"""
+    system_role = """Your role is to read pdf file and reply only with the content of the file. 
+    You are given a query, a series of text embeddings and the title from a paper in order of their cosine similarity to the query. 
+    You must take the given embeddings and return a concise and essential answer to questions in the languange of the query. Speak as softly as possible:"""
 
     user_input = user_input + """
     Here are the embeddings:
 
     1.""" + str(data.iloc[0]['text']) + """
-    2.""" + str(data.iloc[1]['text']) + """
-    3.""" + str(data.iloc[2]['text']) + """
     """
 
     history = [
@@ -108,12 +108,20 @@ def create_prompt(df, user_input):
 
     print('Done creating prompt')
 
-    return
+    return {'messages': history, 'sources': sources}
 
+def gpt(context, sources):
+    print('Sending request to OpenAI')
+    openai.api_key = OPENAI_API_KEY
+    r = openai.ChatCompletion.create(model="gpt-3.5-turbo", messages=context)
+    answer = r.choices[0]["message"]["content"]
+    print('Done sending request to OpenAI')
+    response = {'answer': answer, 'sources': sources}
+    return response
 
 # process start
 # file processing 
-pdf = PdfReader("./pdf/2021 DB 프로젝트 1.pdf")
+pdf = PdfReader("./pdf/수익모델.pdf")
 paper_text = extract_pdf(pdf)
 
 # dataframe 
@@ -127,4 +135,11 @@ print(df['embeddings'])
 db.set("test", df.to_json())
 
 # question about pdf
-query = "교수님 성함이랑 이메일 알려줘"
+query = "free-mium 수익모델의 예시에 대해 설명해줘"
+prompt = create_prompt(df, query)
+
+# call openAI
+response = gpt(prompt['messages'], prompt['sources'])
+print("query : " + query)
+print("answer : ")
+print(response)
