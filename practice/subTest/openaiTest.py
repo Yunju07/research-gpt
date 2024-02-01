@@ -1,15 +1,27 @@
-import openai
+from openai import OpenAI
 import os
 
-openai.api_key = os.environ['OPENAI_API_KEY']
 
-def get_chat_gpt_response(prompt):
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages = [{"role": "user", "content": prompt}]
+def QueryGpt(a_sentence):
+    
+    prompt = f"{a_sentence}"
+
+    client = OpenAI(
+        api_key= os.environ['OPENAI_API_KEY'],
     )
-    return response.choices[0].message.content
 
-question = "안녕?"
-answer = get_chat_gpt_response(question)
-print(answer)
+    chat_completion = client.chat.completions.create(
+        messages=[
+            {
+                "role": "user",
+                "content": prompt,
+            }
+        ],
+        #model="gpt-4-1106-preview",
+        model="gpt-3.5-turbo",
+    )
+
+    return chat_completion.choices[0]
+
+response = QueryGpt("오늘 서울 날씨 어때?")
+print(response)
